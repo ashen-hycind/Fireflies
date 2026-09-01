@@ -232,6 +232,14 @@ class CEODecision(BaseModel):
         min_length=3,
         description="At least three measurable business KPIs for tracking success"
     )
+    quantitative_adjustments: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Explicit Before -> After quantitative deltas, allocation shifts, and financial metrics"
+    )
+    constraint_checks: List[str] = Field(
+        default_factory=list,
+        description="Verification audit of hard constraints (e.g. ['Portfolio Default 5.2% <= 5.5% (PASS)'])"
+    )
 
 
 # ==========================================

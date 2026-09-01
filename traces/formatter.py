@@ -3,6 +3,7 @@ Boardroom Trace & Evidence Formatter for Fireflies Swarm.
 
 Provides rich terminal presentation, structured Markdown boardroom reports,
 and JSON serialization for human evaluation, debugging, and hackathon judging.
+Includes explicit Before -> After Quantitative Breakdown and Constraint Compliance Auditing.
 """
 
 from typing import Optional, Dict, Any, List
@@ -34,6 +35,17 @@ class TraceFormatter:
     Formats end-to-end swarm state and execution traces into auditable
     visual formats: Rich Terminal Output, Markdown Boardroom Report, and JSON.
     """
+
+    @staticmethod
+    def to_json(state: SwarmState, filepath: Optional[str] = None) -> str:
+        """
+        Serializes the complete SwarmState to a JSON string and optionally writes it to a file.
+        """
+        json_str = state.model_dump_json(indent=2)
+        if filepath:
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(json_str)
+        return json_str
 
     @staticmethod
     def render_terminal(state: SwarmState, console: Optional[Any] = None) -> None:
@@ -99,23 +111,21 @@ class TraceFormatter:
         if state.debate_messages:
             c.print(Panel("[bold yellow]Boardroom Debate & Inter-Agent Challenges[/bold yellow]", border_style="yellow"))
             for msg in state.debate_messages:
-                msg_title = f"[{msg.message_type.upper()}] From: {msg.from_agent.upper()} ➔ To: {(msg.to_agent or 'ALL').upper()}"
-                c.print(Panel(
-                    msg.content,
-                    title=f"[bold cyan]{msg_title}[/bold cyan]",
-                    border_style="cyan" if msg.message_type == "challenge" else "dim white",
-                    padding=(0, 1),
-                ))
-            c.print()
+                to_str = f" ➔ [bold cyan]{msg.to_agent.upper()}[/bold cyan]" if msg.to_agent else " ➔ [bold cyan]ALL[/bold cyan]"
+                ref_str = f" [italic dim](Ref: {msg.referenced_claim})[/italic dim]" if msg.referenced_claim else ""
+                type_color = "red" if msg.message_type == "challenge" else ("green" if msg.message_type == "response" else "yellow")
+                
+                c.print(f"[{type_color}][bold]{msg.message_type.upper()}[/bold][/{type_color}] From [bold]{msg.from_agent.upper()}[/bold]{to_str}{ref_str}:")
+                c.print(f"  [white]{msg.content}[/white]\n")
 
         # 5. Strategy Comparison Matrix
         if state.strategy_comparison:
-            strat_table = Table(title="[bold magenta]Strategy Comparison Matrix[/bold magenta]", show_header=True, header_style="bold magenta")
-            strat_table.add_column("Option ID", style="bold cyan", width=12)
-            strat_table.add_column("Advantages", style="green", width=30)
-            strat_table.add_column("Disadvantages & Risks", style="red", width=30)
-            strat_table.add_column("Impacts (Fin / Mkt / Ops)", style="white", width=30)
-            strat_table.add_column("Supporters", style="yellow", width=15)
+            strat_table = Table(title="[bold cyan]Strategy Comparison Matrix (Option A vs. Option B)[/bold cyan]", show_header=True, header_style="bold cyan")
+            strat_table.add_column("Option", style="bold yellow", width=10)
+            strat_table.add_column("Advantages", style="green", width=32)
+            strat_table.add_column("Disadvantages & Risks", style="red", width=32)
+            strat_table.add_column("Impacts (Fin / Mkt / Ops)", style="white", width=32)
+            strat_table.add_column("Support", style="magenta", width=12)
 
             for eval_item in state.strategy_comparison.evaluations:
                 advs = "\n".join(f"✓ {a}" for a in eval_item.advantages)
@@ -139,6 +149,12 @@ class TraceFormatter:
             if ceo.rejected_options:
                 ceo_body.append(f"REJECTED OPTIONS: {', '.join(ceo.rejected_options)}\n", style="bold red")
                 ceo_body.append("REJECTION REASONS:\n" + "\n".join(f"• {rr}" for rr in ceo.rejection_reasons) + "\n\n", style="red")
+            
+            if ceo.quantitative_adjustments:
+                ceo_body.append("QUANTITATIVE ALLOCATION & METRICS:\n" + json.dumps(ceo.quantitative_adjustments, indent=2) + "\n\n", style="bright_cyan")
+            if ceo.constraint_checks:
+                ceo_body.append("CONSTRAINT COMPLIANCE AUDIT:\n" + "\n".join(f"✓ {cc}" for cc in ceo.constraint_checks) + "\n\n", style="bold green")
+
             ceo_body.append("IMPLEMENTATION ROADMAP:\n" + "\n".join(f"1. {step}" for step in ceo.implementation_steps) + "\n\n", style="cyan")
             ceo_body.append("MEASURABLE SUCCESS KPIs:\n" + "\n".join(f"📊 {kpi}" for kpi in ceo.kpis), style="bold yellow")
 
@@ -164,10 +180,16 @@ class TraceFormatter:
             ad_body.append(f"ADAPTED STRATEGY: {ad_ceo.selected_option_id}\n\n", style="bold yellow")
             ad_body.append(f"REVISED DECISION STATEMENT:\n{ad_ceo.decision_statement}\n\n", style="bold white")
             ad_body.append("REVISED RATIONALE:\n" + "\n".join(f"• {r}" for r in ad_ceo.rationale) + "\n\n", style="white")
+
+            if ad_ceo.quantitative_adjustments:
+                ad_body.append("BEFORE -> AFTER QUANTITATIVE REBALANCING:\n" + json.dumps(ad_ceo.quantitative_adjustments, indent=2) + "\n\n", style="bold bright_cyan")
+            if ad_ceo.constraint_checks:
+                ad_body.append("HARD CONSTRAINT VERIFICATION AUDIT:\n" + "\n".join(f"✓ {cc}" for cc in ad_ceo.constraint_checks) + "\n\n", style="bold bright_green")
+
             ad_body.append("ADAPTED IMPLEMENTATION STEPS:\n" + "\n".join(f"1. {step}" for step in ad_ceo.implementation_steps) + "\n\n", style="cyan")
             ad_body.append("REVISED KPIs:\n" + "\n".join(f"📊 {kpi}" for kpi in ad_ceo.kpis), style="bold yellow")
 
-            c.print(Panel(ad_body, title="[bold white on dark_magenta] 🔄 FINAL ADAPTED CEO DECISION [/bold white on dark_magenta]", border_style="magenta"))
+            c.print(Panel(ad_body, title="[bold white on dark_magenta] 🔄 FINAL ADAPTED CEO DECISION (BEFORE -> AFTER QUANTITATIVE DELTA) [/bold white on dark_magenta]", border_style="magenta"))
             c.print()
 
         # 9. Execution Trace Audit Trail
@@ -281,92 +303,91 @@ class TraceFormatter:
 
         if state.baseline_decision:
             ceo = state.baseline_decision
-            lines.extend([
-                f"### Selected Option: `{ceo.selected_option_id}`",
-                f"**Decision Statement:** {ceo.decision_statement}",
-                "",
-                "#### Strategic Rationale:",
-            ])
+            lines.append(f"### Selected Strategy: `{ceo.selected_option_id}`\n")
+            lines.append(f"**Decision Statement:**\n> {ceo.decision_statement}\n")
+            lines.append("#### Executive Rationale:")
             for r in ceo.rationale:
                 lines.append(f"- {r}")
-
             if ceo.rejected_options:
-                lines.append(f"\n#### Rejected Options (`{', '.join(ceo.rejected_options)}`):")
-                for rr in ceo.rejection_reasons:
-                    lines.append(f"- {rr}")
-
-            lines.append("\n#### Phased Implementation Roadmap:")
-            for i, step in enumerate(ceo.implementation_steps, 1):
-                lines.append(f"{i}. {step}")
-
-            lines.append("\n#### Measurable Success KPIs:")
-            for kpi in ceo.kpis:
-                lines.append(f"- 📊 **{kpi}**")
+                lines.append("\n#### Rejected Alternatives:")
+                for ro, rr in zip(ceo.rejected_options, ceo.rejection_reasons):
+                    lines.append(f"- `{ro}`: {rr}")
+            if ceo.quantitative_adjustments:
+                lines.append("\n#### Quantitative Allocations & Metrics:")
+                lines.append("```json\n" + json.dumps(ceo.quantitative_adjustments, indent=2) + "\n```")
+            if ceo.constraint_checks:
+                lines.append("\n#### Constraint Compliance Audit:")
+                for cc in ceo.constraint_checks:
+                    lines.append(f"- ✓ {cc}")
+            lines.append("\n#### Measurable Business KPIs:")
+            for k in ceo.kpis:
+                lines.append(f"- 📊 **{k}**")
         else:
             lines.append("*No baseline CEO decision recorded.*")
-
-        if state.surprise:
-            sur = state.surprise
-            lines.extend([
-                "",
-                "---",
-                "## 6. Runtime Surprise Disruption & Impact",
-                f"### 🚨 Disruption: {sur.title} (`{sur.event_id}`)",
-                f"> {sur.description}",
-                "",
-                f"- **Materially Impacted Areas:** `{', '.join(d.value if hasattr(d, 'value') else str(d) for d in sur.impacted_areas)}`",
-                "- **Parameter / Metric Deltas:**",
-                "```json",
-                json.dumps(sur.parameter_deltas, indent=2),
-                "```",
-            ])
-
-        if state.adapted_decision:
-            ad_ceo = state.adapted_decision
-            lines.extend([
-                "",
-                "---",
-                "## 7. Post-Surprise Adaptation & Final Revised Decision",
-                f"### Revised Strategic Choice: `{ad_ceo.selected_option_id}`",
-                f"**Revised Decision Statement:** {ad_ceo.decision_statement}",
-                "",
-                "#### Revised Rationale:",
-            ])
-            for r in ad_ceo.rationale:
-                lines.append(f"- {r}")
-
-            lines.append("\n#### Phased Tactical Implementation:")
-            for i, step in enumerate(ad_ceo.implementation_steps, 1):
-                lines.append(f"{i}. {step}")
-
-            lines.append("\n#### Revised Tracking KPIs:")
-            for kpi in ad_ceo.kpis:
-                lines.append(f"- 📊 **{kpi}**")
 
         lines.extend([
             "",
             "---",
-            "## 8. Complete Chronological Execution Trace (Audit Trail)",
-            "| Event ID | Timestamp | Phase | Agent | Event Type | Summary |",
-            "|---|---|---|---|---|---|",
+            "## 6. Runtime Surprise Disruption & Injected Disruption",
         ])
 
-        for t in state.execution_trace:
-            phase_val = t.phase.value if hasattr(t.phase, "value") else str(t.phase)
-            lines.append(
-                f"| `{t.event_id}` | `{t.timestamp[:19]}` | `{phase_val}` | `{t.agent_id or '-'}` | `{t.event_type}` | {t.summary} |"
-            )
+        if state.surprise:
+            lines.extend([
+                f"### 🚨 {state.surprise.title} (`{state.surprise.event_id}`)",
+                f"> {state.surprise.description}",
+                "",
+                f"**Impacted Department Vector:** `{[d.value if hasattr(d, 'value') else str(d) for d in state.surprise.impacted_areas]}`",
+                "",
+                "**Parameter Deltas Injected:**",
+                "```json",
+                json.dumps(state.surprise.parameter_deltas, indent=2),
+                "```",
+            ])
+        else:
+            lines.append("*No runtime surprise disruption injected.*")
+
+        lines.extend([
+            "",
+            "---",
+            "## 7. Final Revised Decision (Adapted Decision)",
+        ])
+
+        if state.adapted_decision:
+            ad_ceo = state.adapted_decision
+            lines.extend([
+                f"### Revised Strategic Path: `{ad_ceo.selected_option_id}`",
+                f"**Revised Directive:**\n> {ad_ceo.decision_statement}\n",
+                "#### Adaptation Rationale:",
+            ])
+            for r in ad_ceo.rationale:
+                lines.append(f"- {r}")
+            if ad_ceo.quantitative_adjustments:
+                lines.append("\n#### Before ➔ After Quantitative Breakdown:")
+                lines.append("```json\n" + json.dumps(ad_ceo.quantitative_adjustments, indent=2) + "\n```")
+            if ad_ceo.constraint_checks:
+                lines.append("\n#### Hard Constraint Verification Audit:")
+                for cc in ad_ceo.constraint_checks:
+                    lines.append(f"- ✓ {cc}")
+            lines.append("\n#### Revised Measurable KPIs:")
+            for k in ad_ceo.kpis:
+                lines.append(f"- 📊 **{k}**")
+        else:
+            lines.append("*No adapted CEO decision formulated.*")
+
+        lines.extend([
+            "",
+            "---",
+            "## 8. Complete Chronological Execution Trace",
+        ])
+
+        if state.execution_trace:
+            lines.append("| Timestamp | Phase | Agent | Event Type | Summary |")
+            lines.append("|---|---|---|---|---|")
+            for t in state.execution_trace:
+                phase_val = t.phase.value if hasattr(t.phase, "value") else str(t.phase)
+                agent_val = t.agent_id or "-"
+                lines.append(f"| `{t.timestamp[:19]}` | `{phase_val}` | `{agent_val}` | `{t.event_type}` | {t.summary} |")
+        else:
+            lines.append("*No execution traces logged.*")
 
         return "\n".join(lines)
-
-    @staticmethod
-    def to_json(state: SwarmState, filepath: Optional[str] = None) -> str:
-        """
-        Serializes the complete SwarmState (including all traces) to a formatted JSON string
-        and optionally writes to a target file.
-        """
-        json_data = state.model_dump_json(indent=2)
-        if filepath:
-            with open(filepath, "w", encoding="utf-8") as f:
-                f.write(json_data)
-        return json_data
