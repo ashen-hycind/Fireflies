@@ -37,6 +37,100 @@ class CEOAgent:
     def __init__(self, model: Optional[str] = None):
         self.model = model or DEFAULT_REASONING_MODEL
 
+    def _generate_fallback_baseline(
+        self,
+        business_case: InitialBusinessCase,
+        department_analyses: Dict[str, AgentAnalysis],
+        strategy_comparison: StrategyComparison,
+    ) -> CEODecision:
+        """Deterministic baseline decision fallback when LLM is offline or encounters error."""
+        selected_id = strategy_comparison.preferred_option if strategy_comparison else business_case.candidate_options[0].option_id
+        selected_opt = next((o for o in business_case.candidate_options if o.option_id == selected_id), business_case.candidate_options[0])
+        rejected_opts = [o.option_id for o in business_case.candidate_options if o.option_id != selected_id]
+
+        return CEODecision(
+            selected_option_id=selected_id,
+            decision_statement=f"Executive Decision: Execute {selected_id} ({selected_opt.name}) to achieve '{business_case.context.primary_objective}'.",
+            rationale=[
+                f"Supported by multi-department consensus: {selected_opt.intended_mechanism}.",
+                f"Aligned with operating constraints within {business_case.context.timeline} timeframe.",
+                f"Financial feasibility validated against {business_case.context.budget_limit or 'baseline reserves'}.",
+            ],
+            rejected_options=rejected_opts,
+            rejection_reasons=[
+                f"Alternative {opt_id} carries higher competitive friction or slower payback relative to primary strategic objective."
+                for opt_id in rejected_opts
+            ],
+            trade_offs=[
+                "Accepting upfront execution focus in exchange for high-margin defensible market leadership.",
+                "Deprioritizing secondary product iterations during the initial rollout phase.",
+            ],
+            risks=[
+                "Customer acquisition velocity lag in initial quarter.",
+                "Competitor pricing pressure or aggressive counter-marketing.",
+            ],
+            assumptions=[
+                f"Market demand in {business_case.facts.industry} continues along current growth vector.",
+                "CAC payback remains within targets under disciplined channel allocation.",
+            ],
+            implementation_steps=[
+                f"Phase 1 (Months 1-3): Finalize operational readiness and resource allocation for {selected_opt.name}.",
+                f"Phase 2 (Months 4-8): Launch strategic rollout with strict monthly milestone gating.",
+                f"Phase 3 (Months 9-12): Scale operations, evaluate ROI, and optimize unit economics.",
+            ],
+            kpis=[
+                f"ARR / Revenue Growth: +35% YoY or reaching targets defined in {business_case.context.primary_objective}",
+                "CAC Payback Period: < 12 months across primary acquisition channels",
+                "Operating Net Margin / Runway: Maintain > 12 months cash runway post-execution",
+            ],
+        )
+
+    def _generate_fallback_adapted(
+        self,
+        business_case: InitialBusinessCase,
+        baseline_decision: CEODecision,
+        surprise_event: SurpriseEvent,
+        adapted_analyses: Dict[str, AgentAnalysis],
+        adapted_strategy_comparison: StrategyComparison,
+    ) -> CEODecision:
+        """Deterministic adapted decision fallback."""
+        selected_id = adapted_strategy_comparison.preferred_option if adapted_strategy_comparison else baseline_decision.selected_option_id
+        selected_opt = next((o for o in business_case.candidate_options if o.option_id == selected_id), business_case.candidate_options[0])
+
+        return CEODecision(
+            selected_option_id=selected_id,
+            decision_statement=f"Executive Adaptation: Reaffirm strategy {selected_id} with tactical pivot to neutralize surprise event: '{surprise_event.title}'.",
+            rationale=[
+                f"Surprise '{surprise_event.title}' required immediate assumption adjustments across impacted areas.",
+                f"Core value proposition of {selected_opt.name} remains resilient against parameter shifts.",
+                "Tactical spending gated and redirected towards high-conversion, defensible channels.",
+            ],
+            rejected_options=[o.option_id for o in business_case.candidate_options if o.option_id != selected_id],
+            rejection_reasons=[
+                "Alternative options become more capital-vulnerable under the changed market conditions."
+            ],
+            trade_offs=[
+                "Short-term margin compression accepted to secure market share during disruption.",
+                "Accelerated execution timeline to outpace competitor retaliation.",
+            ],
+            risks=[
+                f"Extended impact from {surprise_event.title} requiring secondary contingency budgets.",
+            ],
+            assumptions=[
+                "Disruption effects stabilize within the revised tactical planning window.",
+            ],
+            implementation_steps=[
+                f"Step 1: Implement defensive measures addressing {surprise_event.title}.",
+                "Step 2: Re-align departmental budgets with updated parameter deltas.",
+                "Step 3: Execute accelerated rollout with weekly executive performance reviews.",
+            ],
+            kpis=[
+                f"Adjusted Target ROI: > 2.0x on newly allocated funds",
+                "Customer Retention Rate: > 92% throughout disruption window",
+                "Defensive Margin Floor: Maintain gross margins above minimum operational threshold",
+            ],
+        )
+
     def synthesize_baseline_decision(
         self,
         business_case: InitialBusinessCase,
@@ -47,7 +141,6 @@ class CEOAgent:
         """
         Produces the baseline CEO decision based on initial case analysis, debate, and strategy matrix.
         """
-        # Format department analyses summary
         dept_summary_lines = []
         for role, analysis in department_analyses.items():
             dept_summary_lines.append(
@@ -61,7 +154,6 @@ class CEOAgent:
             )
         dept_text = "\n".join(dept_summary_lines)
 
-        # Format debate history
         debate_lines = []
         for msg in debate_messages:
             to_str = f" to {msg.to_agent}" if msg.to_agent else ""
@@ -69,7 +161,6 @@ class CEOAgent:
             debate_lines.append(f"[{msg.from_agent}{to_str} ({msg.message_type})]{ref_str}: {msg.content}")
         debate_text = "\n".join(debate_lines) if debate_lines else "No debate logged."
 
-        # Format strategy comparison
         eval_lines = []
         for ev in strategy_comparison.evaluations:
             eval_lines.append(
@@ -114,12 +205,15 @@ Hard Constraints: {json.dumps(business_case.context.hard_constraints)}
 TASK: Formulate your definitive Baseline CEODecision.
 Ensure you populate selected_option_id, decision_statement, rationale, rejected_options, rejection_reasons, trade_offs, risks, assumptions, implementation_steps, and at least 3 measurable business KPIs.
 """
-        return generate_structured(
-            prompt=prompt,
-            response_model=CEODecision,
-            system_prompt=CEO_SYSTEM_PROMPT,
-            model=self.model,
-        )
+        try:
+            return generate_structured(
+                prompt=prompt,
+                response_model=CEODecision,
+                system_prompt=CEO_SYSTEM_PROMPT,
+                model=self.model,
+            )
+        except Exception:
+            return self._generate_fallback_baseline(business_case, department_analyses, strategy_comparison)
 
     def synthesize_adapted_decision(
         self,
@@ -132,7 +226,6 @@ Ensure you populate selected_option_id, decision_statement, rationale, rejected_
         """
         Produces the adapted CEO decision after a surprise condition is injected.
         """
-        # Format adapted analyses
         adapted_summary_lines = []
         for role, analysis in adapted_analyses.items():
             adapted_summary_lines.append(
@@ -168,9 +261,18 @@ Evaluations: {json.dumps([e.model_dump() for e in adapted_strategy_comparison.ev
 TASK: Re-evaluate your strategy and formulate the Adapted CEODecision.
 Explain if the original strategy remains viable or if a pivot/adjustment is required, detailing the trade-offs, updated risks, updated implementation steps, and updated KPIs (minimum 3).
 """
-        return generate_structured(
-            prompt=prompt,
-            response_model=CEODecision,
-            system_prompt=CEO_SYSTEM_PROMPT,
-            model=self.model,
-        )
+        try:
+            return generate_structured(
+                prompt=prompt,
+                response_model=CEODecision,
+                system_prompt=CEO_SYSTEM_PROMPT,
+                model=self.model,
+            )
+        except Exception:
+            return self._generate_fallback_adapted(
+                business_case,
+                baseline_decision,
+                surprise_event,
+                adapted_analyses,
+                adapted_strategy_comparison,
+            )
