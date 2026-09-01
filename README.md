@@ -14,109 +14,123 @@ The swarm operates on generic runtime business cases rather than pre-baked outco
 
 ---
 
-## 🏛 Architecture & Agent Roles
+## 🏛 Architecture & Workflow
 
 ```mermaid
 flowchart TD
-    Input[Generic Business Case] --> SharedState[(Shared State)]
+    Input[InitialBusinessCase: Ground Truth Facts & Options] --> Orchestrator[SwarmOrchestrator]
     
-    subgraph DepartmentAgents [Department Analysis & Collaboration]
+    subgraph DepartmentAgents [Phase 1: Department Analysis]
         direction LR
         Research[Research Agent]
         Finance[Finance Agent]
         Marketing[Marketing & Sales Agent]
     end
     
-    SharedState <--> DepartmentAgents
-    DepartmentAgents --> Debate[Challenge & Debate Engine]
-    Debate --> Strategy[Strategy Comparison: Option A vs Option B]
-    Strategy --> CEO[CEO Agent / Orchestrator]
-    CEO --> BaselineDecision[Baseline CEO Decision & Action Plan]
+    Orchestrator --> DepartmentAgents
+    DepartmentAgents --> Debate[Phase 2: Debate & Cross-Challenge Engine]
+    Debate --> Strategy[Phase 3: Strategy Matrix Synthesizer]
+    Strategy --> CEO[Phase 4: Executive CEO Synthesis]
+    CEO --> BaselineDecision[Baseline CEODecision & Action Roadmap]
     
-    Surprise[Surprise Condition Injected] -.-> AffectedAgents[Rerun Affected Agents]
-    AffectedAgents -.-> RevisedDecision[Revised CEO Decision & Delta Analysis]
+    Surprise[Phase 5: Surprise Event Injected] -.-> SelectiveRerun[Rerun Impacted Departments Only]
+    SelectiveRerun -.-> AdaptedStrategy[Adapted Strategy Matrix]
+    AdaptedStrategy -.-> AdaptedCEO[Adapted CEODecision & Delta Analysis]
     
-    DepartmentAgents -.-> Trace[Boardroom Traces & Auditing]
+    DepartmentAgents -.-> Trace[ExecutionTrace & Audit Trail]
     Debate -.-> Trace
     CEO -.-> Trace
 ```
 
-### Agent Responsibilities
+---
 
-| Agent / Role | Primary Responsibility | Key Inputs & Outputs |
+## 📦 7 Core Pydantic Schemas
+
+| Schema | Purpose | Description |
 | :--- | :--- | :--- |
-| **CEO Agent / Swarm Architect** | System orchestration, conflict synthesis, strategy comparison, final decision formulation, surprise handling. | Multi-agent outputs $\to$ Structured CEO Decision, Trade-off matrix, KPIs, implementation plan. |
-| **Research Agent** | Market analysis, competitor intelligence, customer segment research, opportunities & market risks. | Business case $\to$ Structured market research, clear separation of facts vs. assumptions. |
-| **Finance Agent** | Unit economics, cost-revenue modeling, capital expenditure, profitability, affordability & financial risks. | Market data & case $\to$ Financial feasibility, unit economics, risk exposure. |
-| **Marketing & Sales Agent** | Target audience positioning, GTM strategy, acquisition channels, conversion models. | Research & finance data $\to$ GTM plan, acquisition metrics, positioning strategy. |
-| **Trace & Evidence Engine** | Real-time logging of inter-agent messages, challenge/defence exchanges, decision traces, and evaluation logs. | Swarm message streams $\to$ Auditable execution logs, judge-ready trace view. |
+| **`InitialBusinessCase`** | Immutable Input | Verified ground-truth facts (`BusinessFacts`), decision goals/constraints (`DecisionContext`), and candidate options (`StrategicOption`). Zero surprise data leakage. |
+| **`AgentTask`** | Orchestrator Dispatch | Task lifecycle tracking (`pending`, `running`, `completed`, `failed`), retries, and error handling. |
+| **`AgentAnalysis`** | Department Output | Strictly typed findings, recommendations, evidence, assumptions, risks, and confidence scores from Research, Finance, and Marketing. |
+| **`DebateMessage`** | Inter-Agent Debate | Structured cross-examination messages (`challenge`, `response`, `clarification`, `concession`). |
+| **`StrategyComparison`** | Strategy Matrix | Formal multi-dimensional evaluation of Option A vs Option B across advantages, disadvantages, impacts, risks, and trade-offs. |
+| **`CEODecision`** | Executive Decision | Definite decision statement, department evidence rationale, rejected alternatives with reasons, trade-offs, and $\ge 3$ measurable business KPIs. |
+| **`SurpriseEvent`** | Disruption Payload | Runtime unexpected events targeting specific `impacted_areas` (`List[Department]`) with updated parameter deltas. |
+| **`ExecutionTrace`** | Boardroom Audit Trail | Timestamped log of all agent starts, completions, debate exchanges, strategy comparisons, and decisions for judging review. |
+| **`SwarmState`** | End-to-End State | Comprehensive state container tracking the entire swarm lifecycle. |
 
 ---
 
 ## 👥 Team Split & Ownership
 
-### **Person A — Swarm Architect / Orchestrator**
-- **Owns:** Orchestration framework, shared state management, CEO agent, debate flow, strategy comparison ($A$ vs $B$), surprise condition injection, and failure/fallback controls.
-- **Key Modules:** `orchestrator/`, `state/`, `agents/ceo/`
+```
+Fireflies/
+├── state/             # Person A (Shared schemas & SwarmState contract)
+├── orchestrator/      # Person A (State transitions, debate coordinator, strategy comparator)
+├── agents/
+│   ├── ceo/          # Person A (Executive synthesis & surprise adaptation)
+│   ├── research/     # Person B (Market research, TAM, competitor analysis)
+│   ├── finance/      # Person B (Unit economics, CapEx, runway, profitability)
+│   └── marketing/    # Person C (GTM strategy, channel acquisition, CAC positioning)
+├── traces/            # Person C (Execution logger & boardroom demo viewer)
+├── tests/             # Shared test cases & test suites
+└── utils/             # Shared LLM structured-output client
+```
 
-### **Person B — Research + Finance**
-- **Owns:** Analytical department agents, prompt engineering, structured JSON outputs, separating verified facts from assumptions, data validation.
-- **Key Modules:** `agents/research/`, `agents/finance/`
-
-### **Person C — Marketing + Trace / Evidence**
-- **Owns:** Marketing & Sales agent, auditable boardroom trace engine, disagreement & defence visualization, and judge demo presentation.
-- **Key Modules:** `agents/marketing/`, `traces/`, evidence/demo views.
-
----
-
-## 🔄 Execution Phases
-
-1. **Phase 1: Architecture Alignment**
-   - Agree on generic business input schema, shared state structure, and JSON protocols.
-   - Establish inter-agent communication, challenge mechanism, and CEO decision schema.
-2. **Phase 2: Parallel Development**
-   - Build specialized agents, state machine, orchestrator, and trace loggers in parallel.
-3. **Phase 3: Swarm Integration**
-   - Connect $\text{Research} + \text{Finance} + \text{Marketing} \to \text{Shared State} \to \text{Challenge} \to \text{Compare} \to \text{CEO}$.
-4. **Phase 4: Generalization & Stress Testing**
-   - Test diverse scenarios (e.g., product launches, market expansions, pricing wars, capacity investments) without hardcoded outputs.
-5. **Phase 5: Surprise & Adaptation Testing**
-   - Inject disruptive mid-execution events (e.g., regulatory changes, sudden budget cuts, aggressive competitor moves), rerun affected agents, and verify revised decisions.
-
----
-
-## ✅ Integration Checklist
-
-- [ ] 4–8 identifiable specialized agents.
-- [ ] Research, Finance, Marketing & Sales, and CEO agents active.
-- [ ] Distinct system prompts and domain constraints per agent.
-- [ ] Generic runtime business input support (no hardcoded answers).
-- [ ] Visible, structured agent communication and state updates.
-- [ ] At least one meaningful cross-department disagreement.
-- [ ] Visible defence/response to challenges.
-- [ ] Comparison of at least two viable strategies.
-- [ ] CEO decision backed by concrete evidence and rejected alternatives.
-- [ ] Explicit trade-offs, risks, assumptions, and $\ge 3$ measurable KPIs.
-- [ ] Resilient surprise condition adaptation and delta reporting.
-- [ ] End-to-end auditable execution trace with fallback paths.
+### Team Responsibilities:
+* **Person A — Swarm Architect / Orchestrator** (`feature/orchestrator-ceo`):
+  * Core orchestration engine (`orchestrator/engine.py`).
+  * CEO Agent (`agents/ceo/agent.py`).
+  * Debate and strategy comparison coordination (`orchestrator/debate.py`, `orchestrator/strategy.py`).
+* **Person B — Research + Finance** (`feature/research-finance`):
+  * Research Agent (`agents/research/`).
+  * Finance Agent (`agents/finance/`).
+  * Fact vs. assumption validation.
+* **Person C — Marketing + Trace / Evidence** (`feature/marketing-trace`):
+  * Marketing & Sales Agent (`agents/marketing/`).
+  * Execution trace logger & judge demo view (`traces/`).
 
 ---
 
 ## 🚀 Getting Started
 
-### Prerequisites
-- Python 3.10+
-- Git
-
-### Installation
+### 1. Clone & Setup
 ```bash
-# Clone the repository
 git clone https://github.com/ashen-hycind/Fireflies.git
 cd Fireflies
 
-# Setup virtual environment
+# Create virtual environment
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+# On Windows:
+.venv\Scripts\activate
+# On Mac/Linux:
+source .venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### 2. Configure API Keys
+Create a `.env` file in the project root:
+```ini
+# Google Gemini (Recommended - Free Tier available at aistudio.google.com)
+GEMINI_API_KEY=AIzaSy...
+DEFAULT_FAST_MODEL=gemini-1.5-flash
+DEFAULT_REASONING_MODEL=gemini-1.5-flash
+
+# OR OpenAI
+OPENAI_API_KEY=sk-...
+DEFAULT_FAST_MODEL=gpt-4o-mini
+DEFAULT_REASONING_MODEL=gpt-4o
+```
+
+### 3. Run the Swarm CLI
+```bash
+python run_swarm.py
+```
+
+### 4. Run Automated Tests
+```bash
+python -m pytest tests/
 ```
 
 ---
