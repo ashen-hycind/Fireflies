@@ -1,5 +1,6 @@
 pydantic>=2.7.0
-litellm>=1.40.0
 python-dotenv>=1.0.1
-rich>=13.7.0
+openai>=1.30.0
+google-genai>=1.0.0
 pytest>=8.0.0
+rich>=13.7.0
