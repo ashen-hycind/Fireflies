@@ -27,7 +27,8 @@ from orchestrator.strategy import StrategyComparator
 
 
 # Type signature for a department agent runner function
-AgentRunnerFunc = Callable[[InitialBusinessCase, Optional[SurpriseEvent]], AgentAnalysis]
+# Type signature for a department agent runner function
+AgentRunnerFunc = Callable[[InitialBusinessCase, Optional[SurpriseEvent], Optional[AgentAnalysis]], AgentAnalysis]
 
 
 class SwarmOrchestrator:
@@ -43,6 +44,32 @@ class SwarmOrchestrator:
         self.debate_engine = debate_engine or DebateEngine()
         self.strategy_comparator = strategy_comparator or StrategyComparator()
         self.registered_agents: Dict[str, AgentRunnerFunc] = {}
+
+        # Automatically register real agents if available
+        self._register_default_agents()
+
+    def _register_default_agents(self):
+        """Auto-discovers and registers standard department agents."""
+        try:
+            from agents.research.agent import ResearchAgent
+            res = ResearchAgent()
+            self.register_agent("research", lambda case, surprise, prev=None: res.adapt(case, surprise, prev) if surprise else res.analyze(case))
+        except Exception:
+            pass
+
+        try:
+            from agents.finance.agent import FinanceAgent
+            fin = FinanceAgent()
+            self.register_agent("finance", lambda case, surprise, prev=None: fin.adapt(case, surprise, prev) if surprise else fin.analyze(case))
+        except Exception:
+            pass
+
+        try:
+            from agents.marketing.agent import MarketingAgent
+            mkt = MarketingAgent()
+            self.register_agent("marketing", lambda case, surprise, prev=None: mkt.adapt(case, surprise, prev) if surprise else mkt.analyze(case))
+        except Exception:
+            pass
 
     def register_agent(self, department: str, runner: AgentRunnerFunc):
         """Registers a custom department runner (e.g. from Person B or Person C)."""
@@ -244,8 +271,9 @@ class SwarmOrchestrator:
                     continue  # CEO runs in the final synthesis
                 
                 try:
+                    prev_analysis = state.department_analyses.get(dept)
                     if dept in self.registered_agents:
-                        adapted_analysis = self.registered_agents[dept](business_case, surprise_event)
+                        adapted_analysis = self.registered_agents[dept](business_case, surprise_event, prev_analysis)
                     else:
                         adapted_analysis = self._fallback_mock_analysis(dept, business_case)
                         adapted_analysis.findings.append(f"Adapted for surprise: {surprise_event.title}")
