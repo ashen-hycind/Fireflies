@@ -178,5 +178,7 @@ DEFAULT_REASONING_MODEL=gpt-4o
 python run_swarm.py
 ```
 
+---
+
 ## 📄 License
 This project is licensed under the MIT License.
