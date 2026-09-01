@@ -95,20 +95,20 @@ def run_single_scenario(
     orchestrator: SwarmOrchestrator,
     title: str,
     base_case: InitialBusinessCase,
-    surprise: Optional[SurpriseEvent],
+    surprise_event: Optional[SurpriseEvent] = None,
 ):
     print("\n" + "=" * 80)
     print(f">> SCENARIO: {title}")
     print("=" * 80)
-    if surprise:
-        print(f">> INJECTED DISRUPTION: {surprise.title}")
-        print(f">> DESCRIPTION: {surprise.description}")
+    if surprise_event:
+        print(f">> INJECTED DISRUPTION: {surprise_event.title}")
+        print(f">> DESCRIPTION: {surprise_event.description}")
     else:
         print(f">> BASELINE OBJECTIVE: {base_case.context.primary_objective}")
 
     final_state = orchestrator.run_full_swarm(
         business_case=base_case,
-        surprise_event=surprise,
+        surprise_event=surprise_event,
     )
 
     if HAS_FORMATTER:
