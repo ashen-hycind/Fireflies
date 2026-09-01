@@ -35,6 +35,18 @@ from tests.actual_cases import (
     TEST_CASES_REGISTRY,
 )
 
+# Safe console encoding configuration for Windows
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+if hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 try:
     from traces.formatter import TraceFormatter
     HAS_FORMATTER = True
@@ -44,36 +56,36 @@ except ImportError:
 
 THEMES = {
     "A": {
-        "name": "THEME A: FINSWARM — FinNova Capital (Digital MSME Lending)",
+        "name": "THEME A: FINSWARM -- FinNova Capital (Digital MSME Lending)",
         "base_case": FINSWARM_TC1_CASE,
         "scenarios": [
-            ("TC1 — BASELINE LAUNCH", None),
-            ("TC2 — SURPRISE: CREDIT-RISK SPIKE", FINSWARM_TC2_SURPRISE),
-            ("TC3 — SURPRISE: MARKETING BUDGET CUT", FINSWARM_TC3_SURPRISE),
-            ("TC4 — SURPRISE: STRICTER VERIFICATION REQUIREMENTS", FINSWARM_TC4_SURPRISE),
-            ("TC5 — LIVE TEST: FUNDING-COST & FRAUD SHOCK", FINSWARM_TC5_SURPRISE),
+            ("TC1 -- BASELINE LAUNCH", None),
+            ("TC2 -- SURPRISE: CREDIT-RISK SPIKE", FINSWARM_TC2_SURPRISE),
+            ("TC3 -- SURPRISE: MARKETING BUDGET CUT", FINSWARM_TC3_SURPRISE),
+            ("TC4 -- SURPRISE: STRICTER VERIFICATION REQUIREMENTS", FINSWARM_TC4_SURPRISE),
+            ("TC5 -- LIVE TEST: FUNDING-COST & FRAUD SHOCK", FINSWARM_TC5_SURPRISE),
         ],
     },
     "B": {
-        "name": "THEME B: SAASSWARM — OrbitFlow Software (B2B AI SaaS)",
+        "name": "THEME B: SAASSWARM -- OrbitFlow Software (B2B AI SaaS)",
         "base_case": SAASSWARM_TC1_CASE,
         "scenarios": [
-            ("TC1 — BASELINE MVP & MARKET CHOICE", None),
-            ("TC2 — SURPRISE: COMPETITOR PRICE CUT", SAASSWARM_TC2_SURPRISE),
-            ("TC3 — SURPRISE: ENTERPRISE SECURITY REQUIREMENTS", SAASSWARM_TC3_SURPRISE),
-            ("TC4 — SURPRISE: OUTAGES & CUSTOMER CHURN", SAASSWARM_TC4_SURPRISE),
-            ("TC5 — LIVE TEST: STRATEGIC CUSTOMER REQUEST", SAASSWARM_TC5_SURPRISE),
+            ("TC1 -- BASELINE MVP & MARKET CHOICE", None),
+            ("TC2 -- SURPRISE: COMPETITOR PRICE CUT", SAASSWARM_TC2_SURPRISE),
+            ("TC3 -- SURPRISE: ENTERPRISE SECURITY REQUIREMENTS", SAASSWARM_TC3_SURPRISE),
+            ("TC4 -- SURPRISE: OUTAGES & CUSTOMER CHURN", SAASSWARM_TC4_SURPRISE),
+            ("TC5 -- LIVE TEST: STRATEGIC CUSTOMER REQUEST", SAASSWARM_TC5_SURPRISE),
         ],
     },
     "C": {
-        "name": "THEME C: CHIPSWARM — IndusCompute Hub (GPU Module Assembly)",
+        "name": "THEME C: CHIPSWARM -- IndusCompute Hub (GPU Module Assembly)",
         "base_case": CHIPSWARM_TC1_CASE,
         "scenarios": [
-            ("TC1 — BASELINE PRODUCTION ALLOCATION", None),
-            ("TC2 — SURPRISE: CRITICAL COMPONENT DELAY", CHIPSWARM_TC2_SURPRISE),
-            ("TC3 — SURPRISE: AI DEMAND & ENERGY-COST SURGE", CHIPSWARM_TC3_SURPRISE),
-            ("TC4 — SURPRISE: PACKAGING-YIELD DECLINE", CHIPSWARM_TC4_SURPRISE),
-            ("TC5 — LIVE TEST: EXPORT-RESTRICTION REALLOCATION", CHIPSWARM_TC5_SURPRISE),
+            ("TC1 -- BASELINE PRODUCTION ALLOCATION", None),
+            ("TC2 -- SURPRISE: CRITICAL COMPONENT DELAY", CHIPSWARM_TC2_SURPRISE),
+            ("TC3 -- SURPRISE: AI DEMAND & ENERGY-COST SURGE", CHIPSWARM_TC3_SURPRISE),
+            ("TC4 -- SURPRISE: PACKAGING-YIELD DECLINE", CHIPSWARM_TC4_SURPRISE),
+            ("TC5 -- LIVE TEST: EXPORT-RESTRICTION REALLOCATION", CHIPSWARM_TC5_SURPRISE),
         ],
     },
 }
@@ -86,13 +98,13 @@ def run_single_scenario(
     surprise: Optional[SurpriseEvent],
 ):
     print("\n" + "=" * 80)
-    print(f"🎬 SCENARIO: {title}")
+    print(f">> SCENARIO: {title}")
     print("=" * 80)
     if surprise:
-        print(f"⚡ INJECTED DISRUPTION: {surprise.title}")
-        print(f"📝 DESCRIPTION: {surprise.description}")
+        print(f">> INJECTED DISRUPTION: {surprise.title}")
+        print(f">> DESCRIPTION: {surprise.description}")
     else:
-        print(f"📌 BASELINE OBJECTIVE: {base_case.context.primary_objective}")
+        print(f">> BASELINE OBJECTIVE: {base_case.context.primary_objective}")
 
     final_state = orchestrator.run_full_swarm(
         business_case=base_case,
@@ -126,7 +138,7 @@ def main():
         "--case",
         type=str,
         default=None,
-        help="Run a specific single case ID (e.g. FINSWARM_TC2, SAASSWARM_TC3)",
+        help="Run a specific single case ID (e.g. FINSWARM_TC1, FINSWARM_TC2, SAASSWARM_TC3)",
     )
     parser.add_argument(
         "--list",
@@ -136,10 +148,10 @@ def main():
     args = parser.parse_args()
 
     if args.list:
-        print("\n📋 AVAILABLE THEMES & TEST CASES:")
+        print("\n=== AVAILABLE THEMES & TEST CASES ===")
         print("=" * 70)
         for t_key, t_data in THEMES.items():
-            print(f"\n🏢 {t_data['name']}:")
+            print(f"\n[THEME] {t_data['name']}:")
             for title, s_event in t_data["scenarios"]:
                 s_str = f" [Surprise: {s_event.title}]" if s_event else " [Baseline Only]"
                 print(f"   • {title}{s_str}")
@@ -156,21 +168,21 @@ def main():
             run_single_scenario(orchestrator, case_key, b_case, s_event)
             return
         else:
-            print(f"⚠️ Case '{args.case}' not found. Running default theme.")
+            print(f"Case '{args.case}' not found in registry. Running default theme.")
 
     # Default Theme Mode (Runs all TC1 through TC5 for the selected theme)
     theme_choice = args.theme.upper()
     themes_to_run = ["A", "B", "C"] if theme_choice == "ALL" else [theme_choice]
 
     print("=" * 80)
-    print("🔥 FIREFLIES AGENTIC SWARM — COMPLETE BOARDROOM EVALUATION SUITE 🔥")
+    print("FIREFLIES AGENTIC SWARM -- COMPLETE BOARDROOM EVALUATION SUITE")
     print("=" * 80)
 
     for t_key in themes_to_run:
         theme = THEMES[t_key]
         print("\n" + "#" * 80)
-        print(f"🏆 STARTING {theme['name']}")
-        print(f"📊 Running all 5 Testcases (TC1 Baseline + TC2-TC5 Runtime Disruptions)...")
+        print(f"STARTING {theme['name']}")
+        print("Running all 5 Testcases (TC1 Baseline + TC2-TC5 Runtime Disruptions)...")
         print("#" * 80)
 
         for idx, (tc_title, surprise_event) in enumerate(theme["scenarios"], 1):
@@ -182,7 +194,7 @@ def main():
             )
 
     print("\n" + "=" * 80)
-    print("🎉 ALL TEST SCENARIOS EXECUTED SUCCESSFULLY.")
+    print("ALL TEST SCENARIOS EXECUTED SUCCESSFULLY.")
     print("=" * 80)
 
 
