@@ -178,12 +178,5 @@ DEFAULT_REASONING_MODEL=gpt-4o
 python run_swarm.py
 ```
 
-### 4. Run Automated Tests
-```bash
-python -m pytest tests/
-```
-
----
-
 ## 📄 License
 This project is licensed under the MIT License.
