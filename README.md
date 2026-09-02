@@ -185,3 +185,5 @@ This project is licensed under the MIT License.
 
 ## Contributors
 - Udayan Nath
+- Madhav Mullick
+- Ashen Hycind
